@@ -8,7 +8,7 @@ load_dotenv()
 
 DB_USERNAME = os.getenv('DB_USERNAME')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
-SQLALCHEMY_DB_URL = "postgresql://%s:%s@db/scheduler" % (DB_USERNAME, DB_PASSWORD)
+SQLALCHEMY_DB_URL = "postgresql://%s:%s@db/knowledge_base" % (DB_USERNAME, DB_PASSWORD)
 config = {'db.url':SQLALCHEMY_DB_URL, 'db.echo':'True'}
 
 engine = engine_from_config(config, prefix='db.', pool_size=50, max_overflow=0)

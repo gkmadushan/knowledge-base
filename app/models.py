@@ -1,29 +1,15 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, text, Time
+from sqlalchemy import Column, DateTime, MetaData, String, Table
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
-metadata = Base.metadata
+metadata = MetaData()
 
 
-class Frequency(Base):
-    __tablename__ = 'frequency'
-
-    id = Column(UUID, primary_key=True)
-    name = Column(String(250), nullable=False)
-    code = Column(String(250), nullable=False)
-
-
-class Schedule(Base):
-    __tablename__ = 'schedule'
-
-    id = Column(UUID, primary_key=True)
-    start = Column(Time, nullable=False)
-    terminate = Column(Time, nullable=False)
-    active = Column(Boolean, nullable=False, server_default=text("false"))
-    frequency = Column(ForeignKey('frequency.id'), nullable=False)
-    reference = Column(UUID, nullable=True)
-    last_check = Column(DateTime, nullable=True)
-
-    frequency1 = relationship('Frequency')
+t_lesson_learnt_report = Table(
+    'lesson_learnt_report', metadata,
+    Column('id', UUID, nullable=False),
+    Column('title', String(500), nullable=False),
+    Column('description', String(6000), nullable=False),
+    Column('submitted_at', DateTime, nullable=False),
+    Column('issue_id', UUID, nullable=False),
+    Column('ref', String(6000), nullable=False)
+)
