@@ -5,4 +5,4 @@ alembic upgrade head # to run the upgrade
 
 
 generate db models using SQL code gen
-sqlacodegen postgresql://postgres:pswdrd123@db/environment
+sqlacodegen postgresql://postgres:pswdrd123@db/knowledge_base

@@ -1,15 +1,29 @@
-from sqlalchemy import Column, DateTime, MetaData, String, Table
+# coding: utf-8
+from sqlalchemy import Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base    
 
-metadata = MetaData()
+Base = declarative_base()
+metadata = Base.metadata
 
 
-t_lesson_learnt_report = Table(
-    'lesson_learnt_report', metadata,
-    Column('id', UUID, nullable=False),
-    Column('title', String(500), nullable=False),
-    Column('description', String(6000), nullable=False),
-    Column('submitted_at', DateTime, nullable=False),
-    Column('issue_id', UUID, nullable=False),
-    Column('ref', String(6000), nullable=False)
-)
+class LessonLearntReport(Base):
+    __tablename__ = 'lesson_learnt_report'
+
+    id = Column(UUID, primary_key=True)
+    description = Column(String(6000), nullable=False)
+    submitted_at = Column(DateTime, nullable=False)
+    issue_id = Column(UUID, nullable=False)
+    title = Column(String(2000), nullable=False)
+
+
+class Reference(Base):
+    __tablename__ = 'reference'
+
+    id = Column(UUID, primary_key=True)
+    reference = Column(String(250), nullable=False, index=True)
+    type = Column(String(100), nullable=False)
+    report = Column(ForeignKey('lesson_learnt_report.id'), nullable=False)
+
+    lesson_learnt_report = relationship('LessonLearntReport')

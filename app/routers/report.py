@@ -3,10 +3,10 @@ from sqlalchemy.exc import IntegrityError
 from starlette.responses import Response
 from fastapi import APIRouter, Depends, HTTPException, Request
 from dependencies import common_params, get_db, get_secret_random
-from schemas import CreateSchedule
+from schemas import CreateReport
 from sqlalchemy.orm import Session
 from typing import Optional
-from models import t_lesson_learnt_report
+from models import LessonLearntReport, Reference
 from dependencies import get_token_header
 import uuid
 from datetime import datetime
@@ -17,96 +17,78 @@ from sqlalchemy_filters import apply_pagination
 import time
 import os
 import uuid
+import json
 from sqlalchemy.dialects import postgresql
 import base64
 
 page_size = os.getenv('PAGE_SIZE')
 
 router = APIRouter(
-    prefix="/v1/lessons-learnt",
+    prefix="/v1/reports",
     tags=["KnowledgeBaseAPI"],
     # dependencies=[Depends(get_token_header)],
     responses={404: {"description": "Not found"}},
 )
 
 @router.post("")
-def create(details: CreateSchedule, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
+def create(details: CreateReport, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
     id = details.id or uuid.uuid4().hex
 
-    schedule = Schedule(
+    report = LessonLearntReport(
         id=id,
-        start=details.start,
-        terminate=details.terminate,
-        frequency=details.frequency,
-        reference=details.reference,
-        active=details.active
+        description=details.description,
+        submitted_at=datetime.now(),
+        issue_id=details.issue_id,
+        title=details.title
     )
+
+    try:
+        refs = json.loads(base64.b64decode(details.ref))
+        for ref in refs:
+            reference = Reference(
+                id=uuid.uuid4().hex,
+                reference=ref['ref'],
+                type=ref['type'],
+                report=id
+            )
+            db.add(reference)
+    except:
+        pass
 
     #commiting data to db
     try:
-        db.add(schedule)
+        db.add(report)
         db.commit()
     except IntegrityError as err:
         db.rollback()
         raise HTTPException(status_code=422, detail="Unable to create schedule")
     return {
-        "id": schedule.id
+        "id": report.id
     }
 
 @router.get("")
-def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, commons: dict = Depends(common_params), db: Session = Depends(get_db), id: Optional[str] = None, title: Optional[str] = None, resource: Optional[str] = None, issue_status: Optional[str] = None, issue_id: Optional[str] = None, script_available: Optional[str] = None, false_positive: Optional[str] = None, detected_at_from: Optional[str] = None, detected_at_to: Optional[str] = None, resolved_at_from: Optional[str] = None, resolved_at_to: Optional[str] = None):
+def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, commons: dict = Depends(common_params), db: Session = Depends(get_db), id: Optional[str] = None, ref: Optional[str] = None, issue: Optional[str] = None):
     filters = []
 
-    if(title):
-        filters.append(Issue.title.ilike(title+'%'))
+    if(id):
+        filters.append(LessonLearntReport.id == id)
 
-    if(resource):
-        filters.append(Issue.resource_id == resource)
-
-    if(issue_status):
-        filters.append(Issue.issue_status_id == issue_status)
-
-    if(issue_id):
-        filters.append(Issue.issue_id == issue_id)
-
-    if(script_available == '1'):
-        filters.append(Issue.remediation_script != None)
+    if(ref):
+        filters.append(Reference.reference.ilike('%'+ref+'%'))
     
-    if(script_available == '0'):
-        filters.append(Issue.remediation_script == None)
-
-    if(detected_at_from):
-        filters.append(Issue.detected_at >= detected_at_from)
-
-    if(detected_at_to):
-        filters.append(Issue.detected_at <= detected_at_to)
-
-    if(resolved_at_from):
-        filters.append(Issue.resolved_at >= resolved_at_from)
-    
-    if(resolved_at_to):
-        filters.append(Issue.resolved_at <= resolved_at_to)
-
-    if(false_positive == '1'):
-        filters.append(Issue.false_positive == 1)
-    
-    if(false_positive == '0'):
-        filters.append(Issue.false_positive == 0)
-
+    if(issue):
+        filters.append(LessonLearntReport.issue_id == issue)
 
     query = db.query(
-        over(func.row_number(), order_by=Issue.detected_at).label('index'),
-        Issue.id,
-        Issue.title,
-        Issue.score,
-        Issue.issue_id,
-        Issue.detected_at,
-        Issue.resolved_at,
-        Issue.false_positive,
-        IssueStatus.name.label('issue_status')
+        over(func.row_number(), order_by=LessonLearntReport.submitted_at).label('index'),
+        LessonLearntReport.id,
+        LessonLearntReport.description,
+        LessonLearntReport.submitted_at,
+        LessonLearntReport.issue_id,
+        LessonLearntReport.title
     )
 
-    query, pagination = apply_pagination(query.where(and_(*filters)).join(Issue.issue_status).order_by(Issue.detected_at.asc()), page_number = int(page), page_size = int(limit))
+    query, pagination = apply_pagination(query.where(and_(*filters)).join(Reference.lesson_learnt_report).group_by(LessonLearntReport.id, LessonLearntReport.description, LessonLearntReport.submitted_at, LessonLearntReport.issue_id).order_by(LessonLearntReport.submitted_at.asc()), page_number = int(page), page_size = int(limit))
 
     response = {
         "data": query.all(),
@@ -118,4 +100,14 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
         }
     }
 
+    return response
+
+@router.get("/{id}")
+def get_by_id(id: str, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
+    report = db.query(LessonLearntReport).get(id.strip())
+    if report == None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    response = {
+        "data": report
+    }
     return response
