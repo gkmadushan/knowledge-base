@@ -105,9 +105,10 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
 @router.get("/{id}")
 def get_by_id(id: str, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
     report = db.query(LessonLearntReport).get(id.strip())
+    
     if report == None:
         raise HTTPException(status_code=404, detail="Report not found")
     response = {
         "data": report
-    }
+    } 
     return response
